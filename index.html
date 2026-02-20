@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>رويال جاز - الصفحة الرئيسية</title>
+    <style>
+        :root {
+            --primary-blue: #004a99;
+            --royal-red: #d32f2f;
+        }
+
+        * {
+            box-sizing: border-box;
+            max-width: 100%;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f7f9;
+            overflow-x: hidden;
+        }
+
+        /* 1. أنيميشن نزول القائمة */
+        header {
+            background-image: url('Background.PNG'); 
+            background-size: cover;
+            background-position: center;
+            padding: 8px 5%;
+            border-bottom: 4px solid var(--primary-blue);
+            position: relative;
+            z-index: 100;
+            animation: slideDown 1s ease-out forwards;
+            transform: translateY(-100%);
+        }
+
+        @keyframes slideDown {
+            to { transform: translateY(0); }
+        }
+
+        header::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255, 255, 255, 0.7);
+            z-index: -1;
+        }
+
+        .top-row {
+            display: flex;
+            flex-wrap: wrap; 
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            text-align: center;
+        }
+
+        .right-side, .left-side {
+            flex: 1;
+            min-width: 250px;
+        }
+
+        .right-side h2 { font-size: 1.1rem; margin: 0; line-height: 1.1; }
+        .right-side h3 { font-size: 1.6rem; color: var(--royal-red); margin: 2px 0; }
+        .left-side h3 { font-size: 0.95rem; color: var(--primary-blue); margin: 0; line-height: 1.1; }
+        .left-side h4 { font-size: 0.85rem; margin: 2px 0; }
+
+        /* 2. أنيميشن اللوجو (الشقلبة والاختفاء) */
+        .center-logo {
+            flex: 0 0 auto;
+            perspective: 1000px;
+        }
+
+        .center-logo img {
+            width: 90px;
+            height: auto;
+            border-radius: 50%;
+            border: 3px solid var(--primary-blue);
+            background: white;
+            object-fit: contain;
+            opacity: 0;
+            /* الأنيميشن يبدأ بعد ثانية من فتح الصفحة */
+            animation: coinFlipHide 2.5s ease-in-out 1s forwards;
+        }
+
+        @keyframes coinFlipHide {
+            0% { transform: rotateY(0); opacity: 0; }
+            15% { opacity: 1; }
+            80% { transform: rotateY(720deg); opacity: 1; scale: 1; }
+            100% { transform: rotateY(720deg); opacity: 0; scale: 0; }
+        }
+
+        /* 3. منطقة الأسماء والوظائف */
+        .credits-row {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-around;
+            margin-top: 3px;
+            padding-top: 3px;
+            border-top: 1px solid rgba(0, 74, 153, 0.2);
+        }
+
+        .credit-box { 
+            text-align: center; 
+            padding: 2px 10px; 
+            flex: 1 1 200px; 
+        }
+
+        .credit-box b { 
+            display: block; 
+            font-size: 16px; 
+            color: var(--primary-blue);
+            line-height: 1.2;
+        }
+
+        /* تنسيق الوظيفة في سطر منفصل للتحكم في الحجم */
+        .job-title {
+            display: block;
+            color: #333;
+            line-height: 1.1;
+        }
+
+        /* الأزرار */
+        .menu-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 15px;
+            max-width: 1000px;
+            margin: 25px auto;
+            padding: 0 20px;
+        }
+
+        .menu-container button {
+            padding: 18px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: white;
+            background-color: var(--primary-blue);
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .menu-container button:hover {
+            background-color: #002d5f;
+            transform: translateY(-3px);
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="top-row">
+            <div class="right-side">
+                <h2>الشركة الهندسية لإنتاج الأجهزة الكهربائية</h2>
+                <h3>رويال جاز</h3>
+            </div>
+
+            <div class="center-logo">
+                <img src="logo.png" alt="شعار الشركة">
+            </div>
+
+            <div class="left-side">
+                <h3>إدارة خدمة ما بعد البيع</h3>
+                <h4>قسم الاستقصاء والمتابعة</h4>
+            </div>
+        </div>
+
+        <div class="credits-row">
+            <div class="credit-box">
+                <b>فكرة وإشراف: نورا جمال</b>
+                <span class="job-title" style="font-size: 15px;">مديرة قسم الاستقصاء</span>
+            </div>
+            <div class="credit-box">
+                <b>تنفيذ وتصميم: محمد إبراهيم</b>
+                <span class="job-title" style="font-size: 15px;">مدخل بيانات بقسم الاستقصاء</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="menu-container">
+        <button onclick="window.location.href='technicians.html'">صفحة الفنيين</button>
+        
+        <button onclick="window.location.href='under_execution.html#البلاغات تحت التنفيذ'">البلاغات تحت التنفيذ</button>
+        
+        <button>البلاغات المنفذة</button>
+        <button>البلاغات الأخرى</button>
+        <button>الإعدادات</button>
+    </div>
+
+</body>
+</html>
