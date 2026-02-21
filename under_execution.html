@@ -2,10 +2,10 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>نظام رويال جاز - الإدارة المحمية</title>
+    <title>نظام رويال جاز - الإدارة المتقدمة</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        :root { --excel-green: #217346; --ui-gray: #f3f2f1; --border: #d1d1d1; --accent: #0078d4; }
+        :root { --excel-green: #217346; --ui-gray: #f3f2f1; --border: #d1d1d1; --accent: #0078d4; --select-bg: #cde2ff; }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; background: #eee; }
 
         /* شاشة القفل */
@@ -25,12 +25,18 @@
         .grid-container { flex-grow: 1; overflow: auto; background: #fff; margin: 5px; border: 1px solid #999; }
         table { border-collapse: collapse; table-layout: fixed; min-width: max-content; }
         
-        thead th { position: sticky; top: 0; background: #e6e6e6; z-index: 20; border: 1px solid #bbb; height: 35px; font-size: 13px; min-width: 150px; }
-        .row-header { position: sticky; right: 0; background: #e6e6e6; z-index: 15; width: 45px; text-align: center; border: 1px solid #bbb; font-weight: bold; }
+        thead th { position: sticky; top: 0; background: #e6e6e6; z-index: 20; border: 1px solid #bbb; height: 35px; font-size: 13px; min-width: 150px; cursor: pointer; }
+        thead th.selected-head { background: #b0d4ff; border: 1px solid var(--accent); }
+
+        .row-header { position: sticky; right: 0; background: #e6e6e6; z-index: 15; width: 45px; text-align: center; border: 1px solid #bbb; font-weight: bold; cursor: pointer; }
+        .row-header.selected-head { background: #b0d4ff; border: 1px solid var(--accent); }
 
         td { border: 1px solid #ccc; padding: 0; height: 30px; }
-        .cell-input { width: 100%; height: 100%; border: none; outline: none; padding: 0 8px; text-align: center; font-size: 13px; }
-        .cell-input:focus { background: #f0f7ff; box-shadow: inset 0 0 0 2px var(--accent); }
+        .selected-row td { background-color: var(--select-bg); }
+        .selected-col { background-color: var(--select-bg) !important; }
+
+        .cell-input { width: 100%; height: 100%; border: none; outline: none; padding: 0 8px; text-align: center; font-size: 13px; background: transparent; }
+        .cell-input:focus { background: #fff; box-shadow: inset 0 0 0 2px var(--accent); z-index: 5; }
 
         .btn { padding: 6px 14px; cursor: pointer; border-radius: 4px; font-size: 12px; border: 1px solid #999; background: white; display: flex; align-items: center; gap: 5px; }
         .btn-primary { background: var(--excel-green); color: white; border: none; }
@@ -60,14 +66,13 @@
         </div>
 
         <div class="ribbon">
-            <button class="btn btn-primary" onclick="pullFromGitHub()">🔄 سحب من السحاب</button>
-            <button class="btn btn-cloud" onclick="pushToGitHub()">☁️ مزامنة وحفظ</button>
+            <button class="btn btn-primary" onclick="pullFromGitHub()">🔄 سحب البيانات</button>
+            <button class="btn btn-cloud" onclick="pushToGitHub()">☁️ حفظ للسحاب</button>
             <div style="width:1px; background:#ccc; margin:0 5px"></div>
             <button class="btn" onclick="addNewRow()">➕ إضافة صف</button>
             <button class="btn" onclick="addColumn()">➕ إضافة عمود</button>
-            <button class="btn" onclick="renameColPopup()">✏️ تسمية عمود</button>
-            <button class="btn btn-danger" onclick="deleteColumn()">🗑️ حذف عمود</button>
-            <button class="btn btn-danger" onclick="deleteSelectedRow()">🗑️ حذف صف</button>
+            <button class="btn btn-danger" onclick="deleteSelectedItems()">🗑️ حذف المحدد (صفوف/أعمدة)</button>
+            <button class="btn" onclick="clearSelection()">🧹 إلغاء التحديد</button>
             <button class="btn" style="background:#f39c12; color:white; border:none" onclick="undo()">↩️ تراجع</button>
         </div>
 
@@ -80,44 +85,79 @@
 
         <div class="status-bar">
             <span id="statusMsg">الحالة: متصل</span>
-            <span>(Ctrl+V) للصق بيانات كاملة من الإكسل</span>
+            <span>استخدم الماوس للضغط على أرقام الصفوف أو رؤوس الأعمدة لتحديدها</span>
         </div>
     </div>
 
     <script>
         let dbData = [];
         let history = [];
+        let selectedRows = new Set();
+        let selectedCols = new Set();
         const fileName = "database.xlsx";
 
         // --- نظام الحماية ---
         function checkPass() {
             const input = document.getElementById('passCode').value;
-            // تحويل الأرقام العربية إلى إنجليزية للتأكد من صحة الكود
             const standardInput = input.replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d));
-            
             if (standardInput === "444") {
                 document.getElementById('lockScreen').style.display = 'none';
                 document.getElementById('mainContainer').style.visibility = 'visible';
                 loadSettings();
-            } else {
-                alert("عذراً، الرقم السري غير صحيح!");
-            }
+            } else { alert("الرقم السري خطأ!"); }
         }
 
-        // --- وظيفة اللصق الذكي (Smart Paste) ---
+        // --- التحديد المتعدد ---
+        function toggleRowSelection(idx) {
+            if (selectedRows.has(idx)) selectedRows.delete(idx);
+            else selectedRows.add(idx);
+            renderTable();
+        }
+
+        function toggleColSelection(idx) {
+            if (selectedCols.has(idx)) selectedCols.delete(idx);
+            else selectedCols.add(idx);
+            renderTable();
+        }
+
+        function clearSelection() {
+            selectedRows.clear();
+            selectedCols.clear();
+            renderTable();
+        }
+
+        function deleteSelectedItems() {
+            if (selectedRows.size === 0 && selectedCols.size === 0) return alert("برجاء تحديد صفوف أو أعمدة أولاً");
+            if (!confirm("هل أنت متأكد من حذف العناصر المحددة؟")) return;
+
+            saveHistory();
+            
+            // حذف الأعمدة (بدءاً من الأكبر للأصغر للحفاظ على الترتيب)
+            const sortedCols = Array.from(selectedCols).sort((a, b) => b - a);
+            sortedCols.forEach(cIdx => {
+                dbData.forEach(row => row.splice(cIdx, 1));
+            });
+
+            // حذف الصفوف (بدءاً من الأكبر للأصغر)
+            const sortedRows = Array.from(selectedRows).sort((a, b) => b - a);
+            sortedRows.forEach(rIdx => {
+                dbData.splice(rIdx, 1);
+            });
+
+            clearSelection();
+        }
+
+        // --- اللصق الذكي ---
         function handlePaste(e) {
             if (document.getElementById('lockScreen').style.display === 'none') {
                 const clipboardData = e.clipboardData || window.clipboardData;
                 const pastedData = clipboardData.getData('Text');
                 if (!pastedData) return;
-
                 const rows = pastedData.trim().split(/\r\n|\n|\r/).map(row => row.split('\t'));
                 if (rows.length > 0) {
                     saveHistory();
-                    if (dbData.length === 0 || confirm("هل تريد استبدال الشيت الحالي بالبيانات المنسوخة؟")) {
-                        dbData = rows;
-                    } else {
-                        // إضافة الصفوف الجديدة مع التأكد من مطابقة عدد الأعمدة
+                    if (dbData.length === 0 || confirm("استبدال البيانات الحالية؟")) dbData = rows;
+                    else {
                         const maxCols = Math.max(dbData[0].length, rows[0].length);
                         dbData.forEach(r => { while(r.length < maxCols) r.push(""); });
                         rows.forEach(r => { while(r.length < maxCols) r.push(""); dbData.push(r); });
@@ -136,19 +176,30 @@
             if (dbData.length === 0) return;
 
             const hTr = document.createElement('tr');
-            hTr.innerHTML = `<th class="row-header">#</th>`;
+            hTr.innerHTML = `<th class="row-header" onclick="clearSelection()">#</th>`;
             dbData[0].forEach((h, i) => {
                 const th = document.createElement('th');
                 th.innerText = h || `عمود ${i+1}`;
+                if (selectedCols.has(i)) th.className = "selected-head";
+                th.onclick = () => toggleColSelection(i);
+                th.ondblclick = () => renameCol(i);
                 hTr.appendChild(th);
             });
             thead.appendChild(hTr);
 
             for (let r = 1; r < dbData.length; r++) {
                 const tr = document.createElement('tr');
-                tr.innerHTML = `<td class="row-header">${r}</td>`;
+                if (selectedRows.has(r)) tr.className = "selected-row";
+                
+                const rHead = document.createElement('td');
+                rHead.className = "row-header" + (selectedRows.has(r) ? " selected-head" : "");
+                rHead.innerText = r;
+                rHead.onclick = () => toggleRowSelection(r);
+                tr.appendChild(rHead);
+
                 dbData[r].forEach((cell, c) => {
                     const td = document.createElement('td');
+                    if (selectedCols.has(c)) td.className = "selected-col";
                     td.innerHTML = `<input class="cell-input" value="${cell || ''}" onchange="updateCell(${r}, ${c}, this.value)">`;
                     tr.appendChild(td);
                 });
@@ -156,10 +207,12 @@
             }
         }
 
-        function updateCell(r, c, val) {
-            saveHistory();
-            dbData[r][c] = val;
+        function renameCol(i) {
+            const name = prompt("الاسم الجديد للعمود:", dbData[0][i]);
+            if (name) { saveHistory(); dbData[0][i] = name; renderTable(); }
         }
+
+        function updateCell(r, c, val) { saveHistory(); dbData[r][c] = val; }
 
         function addColumn() {
             saveHistory();
@@ -168,41 +221,11 @@
             renderTable();
         }
 
-        function deleteColumn() {
-            const colIdx = prompt("أدخل رقم العمود لحذفه (العمود الأول = 1):");
-            if (colIdx && dbData[0][colIdx-1]) {
-                saveHistory();
-                dbData.forEach(r => r.splice(colIdx-1, 1));
-                renderTable();
-            }
-        }
-
-        function renameColPopup() {
-            const colIdx = prompt("رقم العمود المراد تسميته:");
-            if (colIdx && dbData[0][colIdx-1]) {
-                const newName = prompt("الاسم الجديد:", dbData[0][colIdx-1]);
-                if (newName) {
-                    saveHistory();
-                    dbData[0][colIdx-1] = newName;
-                    renderTable();
-                }
-            }
-        }
-
         function addNewRow() {
             saveHistory();
             if (dbData.length === 0) dbData = [["الاسم"], [""]];
             else dbData.push(new Array(dbData[0].length).fill(""));
             renderTable();
-        }
-
-        function deleteSelectedRow() {
-            const rowNum = prompt("أدخل رقم الصف لحذفه:");
-            if (rowNum && dbData[rowNum]) {
-                saveHistory();
-                dbData.splice(rowNum, 1);
-                renderTable();
-            }
         }
 
         // --- وظائف GitHub ---
@@ -213,60 +236,42 @@
                 const res = await fetch(`https://api.github.com/repos/${repo}/contents/${fileName}`, {
                     headers: { 'Authorization': `token ${token}` }
                 });
-                if (!res.ok) throw new Error("لا يوجد ملف في السحاب بعد");
                 const json = await res.json();
                 const content = Uint8Array.from(atob(json.content), c => c.charCodeAt(0));
                 const wb = XLSX.read(content, { type: 'array' });
                 dbData = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 });
                 renderTable();
-                alert("تم مزامنة البيانات من السحاب ✅");
-            } catch (e) { alert(e.message); }
+                alert("تم السحب بنجاح ✅");
+            } catch (e) { alert("تأكد من التوكن والإعدادات"); }
         }
 
         async function pushToGitHub() {
             const token = document.getElementById('ghToken').value;
             const repo = document.getElementById('ghRepo').value;
-            if (dbData.length === 0) return alert("الجدول فارغ!");
-
             const ws = XLSX.utils.aoa_to_sheet(dbData);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Data");
             const out = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
-
             let sha = "";
             const check = await fetch(`https://api.github.com/repos/${repo}/contents/${fileName}`, {
                 headers: { 'Authorization': `token ${token}` }
             });
             if (check.ok) sha = (await check.json()).sha;
-
             const res = await fetch(`https://api.github.com/repos/${repo}/contents/${fileName}`, {
                 method: 'PUT',
                 headers: { 'Authorization': `token ${token}` },
-                body: JSON.stringify({ message: "Update Data", content: out, sha: sha })
+                body: JSON.stringify({ message: "Update", content: out, sha: sha })
             });
-            if (res.ok) alert("تم الحفظ والمزامنة في السحاب بنجاح! ☁️✅");
-            else alert("فشل الحفظ، تأكد من إعدادات الربط");
+            if (res.ok) alert("تم الحفظ في السحاب ✅");
         }
 
-        // --- التراجع وحفظ الإعدادات ---
-        function saveHistory() {
-            history.push(JSON.stringify(dbData));
-            if (history.length > 20) history.shift();
-        }
-
-        function undo() {
-            if (history.length > 0) {
-                dbData = JSON.parse(history.pop());
-                renderTable();
-            }
-        }
-
+        function saveHistory() { history.push(JSON.stringify(dbData)); if (history.length > 20) history.shift(); }
+        function undo() { if (history.length > 0) { dbData = JSON.parse(history.pop()); renderTable(); } }
         function saveSettings() {
             localStorage.setItem('gh_token', document.getElementById('ghToken').value);
             localStorage.setItem('gh_repo', document.getElementById('ghRepo').value);
-            alert("تم حفظ إعدادات الربط!");
+            alert("تم الحفظ!");
         }
-
         function loadSettings() {
             document.getElementById('ghToken').value = localStorage.getItem('gh_token') || "";
             document.getElementById('ghRepo').value = localStorage.getItem('gh_repo') || "Mo-Ibrahim50015/royal-jazz-syste";
